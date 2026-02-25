@@ -45,7 +45,7 @@ with st.sidebar:
     st.markdown("1. Enter your API key")
     st.markdown("2. Upload context docs (career ladder + rating scale)")
     st.markdown("3. Upload your employee data CSV")
-    st.markdown("4. Upload self-review and manager-review PDFs")
+    st.markdown("4. Upload combined review packets (one PDF per employee)")
     st.markdown("5. Click **Run Analysis**")
 
 # ─────────────────────────────────────────────
@@ -81,18 +81,41 @@ def find_review_for_employee(name, pdf_dict):
     """
     Given an employee name and a dict of {filename: text},
     return the text of the file whose name most closely matches the employee.
-    Tries full name match first, then last name only.
-    Returns None if no match found.
+
+    Tries several matching strategies in order:
+      1. Full name with spaces  (e.g. "aaron brigham" in filename)
+      2. Full name with hyphens (e.g. "aaron-brigham" in filename)
+      3. Both first AND last name present anywhere in filename
+      4. Last name only — only if it uniquely matches one file
     """
     name_lower = name.lower().strip()
     name_parts = name_lower.split()
+    name_hyphen = "-".join(name_parts)
 
-    # Full name match
+    # 1. Exact full-name (space-separated)
     for filename, text in pdf_dict.items():
         if name_lower in filename.lower():
             return text
 
-    # Last name match (fallback)
+    # 2. Hyphenated full name
+    for filename, text in pdf_dict.items():
+        if name_hyphen in filename.lower():
+            return text
+
+    # 3. Both first and last name present (handles middle names / reordering)
+    if len(name_parts) >= 2:
+        first, last = name_parts[0], name_parts[-1]
+        matches = [
+            (fn, tx) for fn, tx in pdf_dict.items()
+            if first in fn.lower() and last in fn.lower()
+        ]
+        if len(matches) == 1:
+            return matches[0][1]
+        if len(matches) > 1:
+            # Multiple hits — return best (longest overlap) rather than nothing
+            return max(matches, key=lambda m: len(m[0]))[1]
+
+    # 4. Last name only (unique match)
     if name_parts:
         last_name = name_parts[-1]
         matches = [(fn, tx) for fn, tx in pdf_dict.items() if last_name in fn.lower()]
@@ -100,6 +123,50 @@ def find_review_for_employee(name, pdf_dict):
             return matches[0][1]
 
     return None
+
+
+def split_combined_review(uploaded_file):
+    """
+    Extract and split a combined review packet PDF into manager review text
+    and self review text, based on section header markers in the document.
+
+    Strategy: scan page by page. A page that contains BOTH 'manager review'
+    and 'self review' is a TOC/cover page — skip it. A page with only one
+    marker starts that section; subsequent pages with no marker continue it.
+
+    Returns (manager_text, self_text) — either may be empty string if not found.
+    """
+    manager_pages = []
+    self_pages = []
+    current_section = None
+
+    try:
+        uploaded_file.seek(0)
+        with pdfplumber.open(BytesIO(uploaded_file.read())) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text() or ""
+                tl = text.lower()
+                has_mgr  = "manager review" in tl
+                has_self = "self review" in tl
+
+                if has_mgr and has_self:
+                    # Cover / TOC page — skip
+                    continue
+                elif has_mgr:
+                    current_section = "manager"
+                    manager_pages.append(text)
+                elif has_self:
+                    current_section = "self"
+                    self_pages.append(text)
+                elif current_section == "manager":
+                    manager_pages.append(text)
+                elif current_section == "self":
+                    self_pages.append(text)
+                # else: closing/acknowledgement page — skip
+    except Exception as e:
+        return f"[Error reading file: {e}]", ""
+
+    return "\n\n".join(manager_pages).strip(), "\n\n".join(self_pages).strip()
 
 
 # ─────────────────────────────────────────────
@@ -173,32 +240,23 @@ if employee_data_file:
 # Step 3: Review PDFs
 # ─────────────────────────────────────────────
 st.divider()
-st.header("Step 3 — Review PDFs")
+st.header("Step 3 — Review Packets")
 st.markdown(
-    "Upload the written review documents. **Name each file with the employee's name** so the tool "
-    "can match them automatically — e.g. `Jane Smith Self.pdf` or `Jane Smith Manager Review.pdf`."
+    "Upload one combined review packet PDF per employee — the tool will automatically detect "
+    "and split the manager review and self review sections. "
+    "**Include the employee's name in each filename** so they can be matched to your CSV "
+    "— e.g. `Aaron-Brigham_2026-Q1-Performance-Assessment.pdf`."
 )
 
-col3, col4 = st.columns(2)
-with col3:
-    self_review_files = st.file_uploader(
-        "📝 Self Reviews (PDFs)",
-        type=["pdf"],
-        accept_multiple_files=True,
-        help="One PDF per employee. Include the employee's name in the filename."
-    )
-with col4:
-    manager_review_files = st.file_uploader(
-        "📝 Manager Reviews (PDFs)",
-        type=["pdf"],
-        accept_multiple_files=True,
-        help="One PDF per employee. Include the employee's name in the filename."
-    )
+combined_review_files = st.file_uploader(
+    "📝 Combined Review Packets (PDFs)",
+    type=["pdf"],
+    accept_multiple_files=True,
+    help="One packet per employee. The tool expects a 'Manager review' section and a 'Self review' section inside each PDF."
+)
 
-if self_review_files:
-    st.caption(f"Self reviews uploaded: {', '.join([f.name for f in self_review_files])}")
-if manager_review_files:
-    st.caption(f"Manager reviews uploaded: {', '.join([f.name for f in manager_review_files])}")
+if combined_review_files:
+    st.caption(f"{len(combined_review_files)} packet(s) uploaded: {', '.join([f.name for f in combined_review_files])}")
 
 # ─────────────────────────────────────────────
 # Analysis button
@@ -230,15 +288,22 @@ if run_button:
     # ── Extract employee data ──
     employee_df = pd.read_csv(employee_data_file)
 
-    # ── Extract all review PDFs into dicts ──
-    with st.spinner("Extracting review PDFs..."):
+    # ── Extract and split combined review packets ──
+    with st.spinner("Extracting and splitting review packets..."):
         self_reviews = {}
-        for f in (self_review_files or []):
-            self_reviews[f.name] = extract_pdf_text(f)
-
         manager_reviews = {}
-        for f in (manager_review_files or []):
-            manager_reviews[f.name] = extract_pdf_text(f)
+        split_preview = []
+        for f in (combined_review_files or []):
+            mgr_text, self_text = split_combined_review(f)
+            manager_reviews[f.name] = mgr_text
+            self_reviews[f.name]    = self_text
+            split_preview.append(
+                f"**{f.name}** — manager: {len(mgr_text)} chars, self: {len(self_text)} chars"
+            )
+        if split_preview:
+            with st.expander("📋 Packet split preview", expanded=False):
+                for line in split_preview:
+                    st.markdown(line)
 
     # ── Run LLM analysis for each employee ──
     client = anthropic.Anthropic(api_key=api_key)
