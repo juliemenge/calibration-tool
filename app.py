@@ -77,50 +77,82 @@ def read_uploaded_file(uploaded_file):
         return uploaded_file.read().decode("utf-8", errors="ignore")
 
 
+def parse_name(name):
+    """
+    Parse a name string into (first, last) regardless of format.
+    Handles:
+      - "Justin Wolfe"   → ("justin", "wolfe")
+      - "Wolfe, Justin"  → ("justin", "wolfe")   ← Lattice CSV export format
+      - "Justin M Wolfe" → ("justin", "wolfe")
+    Returns lowercase strings with punctuation stripped.
+    """
+    import re
+    name = name.strip()
+    # "Last, First" format (Lattice default)
+    if "," in name:
+        parts = [p.strip() for p in name.split(",", 1)]
+        last, first = parts[0], parts[1]
+    else:
+        tokens = name.split()
+        first = tokens[0] if tokens else ""
+        last  = tokens[-1] if len(tokens) > 1 else ""
+    # Strip punctuation and lowercase
+    clean = lambda s: re.sub(r"[^a-z]", "", s.lower())
+    return clean(first), clean(last)
+
+
 def find_review_for_employee(name, pdf_dict):
     """
-    Given an employee name and a dict of {filename: text},
-    return the text of the file whose name most closely matches the employee.
+    Match an employee name to the right file in pdf_dict {filename: text}.
 
-    Tries several matching strategies in order:
-      1. Full name with spaces  (e.g. "aaron brigham" in filename)
-      2. Full name with hyphens (e.g. "aaron-brigham" in filename)
-      3. Both first AND last name present anywhere in filename
-      4. Last name only — only if it uniquely matches one file
+    Handles:
+      - "Last, First" CSV names   (Lattice export)
+      - "First Last"  CSV names
+      - Filenames containing email prefix (justin@helpscout.com_...)
+      - Hyphenated names in filenames (Justin-Wolfe)
+      - Names appearing in any order in the filename
     """
-    name_lower = name.lower().strip()
-    name_parts = name_lower.split()
-    name_hyphen = "-".join(name_parts)
+    first, last = parse_name(name)
+    if not first and not last:
+        return None
 
-    # 1. Exact full-name (space-separated)
-    for filename, text in pdf_dict.items():
-        if name_lower in filename.lower():
-            return text
+    fn_lower = {fn: fn.lower() for fn in pdf_dict}
 
-    # 2. Hyphenated full name
-    for filename, text in pdf_dict.items():
-        if name_hyphen in filename.lower():
-            return text
+    # Build candidate strings to search for in filenames
+    candidates = []
+    if first and last:
+        candidates += [
+            f"{first}-{last}",    # justin-wolfe
+            f"{last}-{first}",    # wolfe-justin
+            f"{first} {last}",    # justin wolfe
+            f"{last} {first}",    # wolfe justin
+            f"{last}_{first}",    # wolfe_justin
+            f"{first}_{last}",    # justin_wolfe
+        ]
 
-    # 3. Both first and last name present (handles middle names / reordering)
-    if len(name_parts) >= 2:
-        first, last = name_parts[0], name_parts[-1]
+    # 1. Try each combined candidate
+    for fn, fln in fn_lower.items():
+        for cand in candidates:
+            if cand in fln:
+                return pdf_dict[fn]
+
+    # 2. Both first AND last appear anywhere in filename (handles middle names,
+    #    email prefixes, extra tokens, etc.)
+    if first and last:
         matches = [
-            (fn, tx) for fn, tx in pdf_dict.items()
-            if first in fn.lower() and last in fn.lower()
+            fn for fn, fln in fn_lower.items()
+            if first in fln and last in fln
         ]
         if len(matches) == 1:
-            return matches[0][1]
+            return pdf_dict[matches[0]]
         if len(matches) > 1:
-            # Multiple hits — return best (longest overlap) rather than nothing
-            return max(matches, key=lambda m: len(m[0]))[1]
+            return pdf_dict[matches[0]]  # take first hit
 
-    # 4. Last name only (unique match)
-    if name_parts:
-        last_name = name_parts[-1]
-        matches = [(fn, tx) for fn, tx in pdf_dict.items() if last_name in fn.lower()]
+    # 3. Last name only — unique match fallback
+    if last:
+        matches = [fn for fn, fln in fn_lower.items() if last in fln]
         if len(matches) == 1:
-            return matches[0][1]
+            return pdf_dict[matches[0]]
 
     return None
 
