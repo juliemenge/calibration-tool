@@ -19,6 +19,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap');
+
 /* ── Fonts & base ─────────────────────────────────────── */
 html, body, [class*="css"] {
     font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -29,123 +31,139 @@ html, body, [class*="css"] {
 
 /* ── Tabs ─────────────────────────────────────────────── */
 [data-testid="stTabs"] [data-baseweb="tab-list"] {
-    gap: 4px;
-    border-bottom: 2px solid #E5E0D8;
+    gap: 0;
+    border-bottom: 1px solid #D8D4CC;
     padding-bottom: 0;
+    background: transparent;
 }
 [data-testid="stTabs"] [data-baseweb="tab"] {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #7C7772;
-    padding: 10px 18px;
-    border-radius: 8px 8px 0 0;
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #9C9690;
+    padding: 12px 20px;
     background: transparent;
     border: none;
+    letter-spacing: 0.01em;
 }
 [data-testid="stTabs"] [aria-selected="true"] {
-    color: #2D2B28 !important;
-    border-bottom: 2px solid #C8602A !important;
+    color: #1A1918 !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid #1A1918 !important;
 }
 
 /* ── Sidebar ──────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    border-right: 1px solid #E5E0D8;
-    background: #FAFAF8;
+    border-right: 1px solid #D8D4CC;
 }
 [data-testid="stSidebar"] .stMarkdown p {
     font-size: 13px;
     line-height: 1.85;
-    color: #5C5752;
+    color: #6C6762;
 }
 [data-testid="stSidebar"] h2 {
-    font-size: 0.95rem !important;
+    font-family: "Inter", sans-serif !important;
+    font-size: 0.7rem !important;
     font-weight: 700 !important;
-    color: #2D2B28 !important;
-    letter-spacing: 0.02em;
+    color: #9C9690 !important;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    margin-bottom: 0.75rem !important;
 }
 
 /* ── Metric cards ─────────────────────────────────────── */
 [data-testid="stMetric"] {
     background: #FFFFFF;
-    border: 1px solid #E5E0D8;
+    border: 1px solid #D8D4CC;
     border-radius: 12px;
-    padding: 16px 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    padding: 18px 22px;
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.78rem !important;
+    font-family: "Inter", sans-serif !important;
+    font-size: 0.72rem !important;
     font-weight: 600 !important;
-    color: #7C7772 !important;
+    color: #9C9690 !important;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.07em;
 }
 [data-testid="stMetricValue"] {
-    font-weight: 800 !important;
-    font-size: 2rem !important;
-    color: #2D2B28 !important;
+    font-family: "DM Serif Display", serif !important;
+    font-weight: 400 !important;
+    font-size: 2.25rem !important;
+    color: #1A1918 !important;
+    letter-spacing: -0.5px;
 }
 
 /* ── Expanders (result cards) ─────────────────────────── */
 [data-testid="stExpander"] {
-    border: 1px solid #E5E0D8 !important;
-    border-radius: 10px !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+    border: 1px solid #D8D4CC !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
     margin-bottom: 8px !important;
     background: #FFFFFF !important;
 }
 [data-testid="stExpander"] summary {
-    padding: 14px 18px !important;
+    padding: 16px 20px !important;
     font-weight: 600 !important;
-    font-size: 0.92rem !important;
+    font-size: 0.9rem !important;
+    color: #1A1918 !important;
 }
 
 /* ── File uploader ────────────────────────────────────── */
 [data-testid="stFileUploader"] {
     border-radius: 10px;
-    border: 1.5px dashed #D5CFC8 !important;
-    background: #FAFAF8 !important;
+    border: 1.5px dashed #C8C3BB !important;
+    background: #FFFFFF !important;
 }
 [data-testid="stFileUploader"]:hover {
-    border-color: #C8602A !important;
+    border-color: #1A1918 !important;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] {
     font-size: 0.875rem !important;
-    color: #7C7772 !important;
+    color: #9C9690 !important;
 }
 
 /* ── Buttons ──────────────────────────────────────────── */
 .stButton > button {
-    border-radius: 8px !important;
+    border-radius: 100px !important;
+    font-family: "Inter", sans-serif !important;
     font-weight: 600 !important;
     font-size: 0.875rem !important;
     transition: all 0.15s ease !important;
 }
 .stButton > button[kind="primary"] {
-    background: #C8602A !important;
+    background: #1A1918 !important;
     border: none !important;
-    color: white !important;
-    padding: 11px 28px !important;
-    font-size: 0.95rem !important;
-    font-weight: 700 !important;
+    color: #F5F4EF !important;
+    padding: 12px 32px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
     letter-spacing: 0.01em !important;
-    box-shadow: 0 2px 6px rgba(200,96,42,0.3) !important;
 }
 .stButton > button[kind="primary"]:hover {
-    background: #B05525 !important;
-    box-shadow: 0 3px 8px rgba(200,96,42,0.4) !important;
+    background: #2D2B28 !important;
     transform: translateY(-1px) !important;
 }
 .stButton > button[kind="primary"]:disabled {
-    background: #D5CFC8 !important;
-    box-shadow: none !important;
+    background: #C8C3BB !important;
+    color: #F5F4EF !important;
     transform: none !important;
+}
+.stButton > button[kind="secondary"] {
+    border: 1px solid #C8C3BB !important;
+    color: #1A1918 !important;
+    background: transparent !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    border-color: #1A1918 !important;
+    background: transparent !important;
 }
 
 /* ── Selectbox ────────────────────────────────────────── */
 [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-    border-radius: 8px !important;
-    border-color: #D5CFC8 !important;
+    border-radius: 10px !important;
+    border-color: #C8C3BB !important;
+    background: #FFFFFF !important;
 }
 
 /* ── Alerts / banners ─────────────────────────────────── */
@@ -154,23 +172,34 @@ html, body, [class*="css"] {
     border-width: 1px !important;
     font-size: 0.875rem !important;
 }
-.stSuccess { border-color: #A8D5A2 !important; }
-.stInfo    { border-color: #B8D4E8 !important; }
 
 /* ── Divider ──────────────────────────────────────────── */
-hr { border-color: #E5E0D8 !important; margin: 1.5rem 0 !important; }
+hr { border-color: #D8D4CC !important; margin: 1.75rem 0 !important; }
 
 /* ── Dataframe ────────────────────────────────────────── */
 [data-testid="stDataFrame"] {
     border-radius: 10px;
     overflow: hidden;
-    border: 1px solid #E5E0D8;
+    border: 1px solid #D8D4CC;
 }
 
 /* ── Progress bar ─────────────────────────────────────── */
 [data-testid="stProgress"] > div > div {
-    background: #C8602A !important;
+    background: #1A1918 !important;
     border-radius: 4px !important;
+}
+
+/* ── Download button ──────────────────────────────────── */
+[data-testid="stDownloadButton"] > button {
+    border-radius: 100px !important;
+    border: 1px solid #C8C3BB !important;
+    color: #1A1918 !important;
+    background: transparent !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+    border-color: #1A1918 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -181,17 +210,18 @@ hr { border-color: #E5E0D8 !important; margin: 1.5rem 0 !important; }
 # ─────────────────────────────────────────────
 def step_header(num: int, title: str, desc: str):
     st.markdown(f"""
-    <div style="display:flex;align-items:flex-start;gap:14px;
-                padding:1.75rem 0 0.75rem;margin-top:0.25rem;">
-        <div style="min-width:32px;height:32px;background:#C8602A;color:#fff;
+    <div style="display:flex;align-items:flex-start;gap:16px;
+                padding:2rem 0 0.75rem;margin-top:0.25rem;">
+        <div style="min-width:28px;height:28px;background:#C8602A;color:#fff;
                     border-radius:50%;display:flex;align-items:center;
-                    justify-content:center;font-weight:700;font-size:0.875rem;
-                    flex-shrink:0;box-shadow:0 2px 5px rgba(200,96,42,0.3);">{num}</div>
+                    justify-content:center;font-family:'Inter',sans-serif;
+                    font-weight:600;font-size:0.8rem;flex-shrink:0;
+                    margin-top:3px;">{num}</div>
         <div>
-            <div style="font-weight:700;font-size:1.1rem;color:#2D2B28;
-                        line-height:1.3;">{title}</div>
-            <div style="font-size:0.875rem;color:#7C7772;margin-top:3px;
-                        line-height:1.5;">{desc}</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.35rem;
+                        color:#1A1918;line-height:1.25;letter-spacing:-0.2px;">{title}</div>
+            <div style="font-family:'Inter',sans-serif;font-size:0.875rem;
+                        color:#9C9690;margin-top:4px;line-height:1.5;">{desc}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -217,17 +247,17 @@ def flag_badges(gap: bool, narrative: bool, conflict: bool):
 def missing_checklist(items: list):
     """Render a soft checklist of items still needed before running."""
     rows = "".join(
-        f'<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">'
-        f'<span style="color:#C8602A;font-size:0.9rem;">◦</span>'
-        f'<span style="font-size:0.875rem;color:#5C5752;">{item}</span></div>'
+        f'<div style="display:flex;align-items:center;gap:10px;padding:5px 0;">'
+        f'<span style="color:#C8602A;font-size:1rem;line-height:1;">○</span>'
+        f'<span style="font-family:Inter,sans-serif;font-size:0.875rem;color:#6C6762;">{item}</span></div>'
         for item in items
     )
     st.markdown(f"""
-    <div style="background:#FFF8F5;border:1px solid #E8C9BC;border-radius:10px;
-                padding:14px 18px;margin:8px 0 16px;">
-        <div style="font-weight:600;font-size:0.825rem;color:#7C3A1E;
-                    text-transform:uppercase;letter-spacing:0.05em;
-                    margin-bottom:8px;">Still needed to run</div>
+    <div style="background:#FFFFFF;border:1px solid #D8D4CC;border-radius:12px;
+                padding:16px 20px;margin:8px 0 18px;">
+        <div style="font-family:Inter,sans-serif;font-weight:600;font-size:0.72rem;
+                    color:#9C9690;text-transform:uppercase;letter-spacing:0.08em;
+                    margin-bottom:10px;">Still needed to run</div>
         {rows}
     </div>
     """, unsafe_allow_html=True)
@@ -240,7 +270,7 @@ def section_pill(label: str, color: str):
         "yellow": ("#92400E", "#FEF3C7", "#FDE68A"),
         "green":  ("#166534", "#DCFCE7", "#BBF7D0"),
     }
-    text_c, bg_c, border_c = colors_map.get(color, ("#2D2B28", "#F0EDE8", "#E5E0D8"))
+    text_c, bg_c, border_c = colors_map.get(color, ("#1A1918", "#ECEAE3", "#D8D4CC"))
     st.markdown(
         f'<div style="display:inline-flex;align-items:center;padding:4px 14px;'
         f'border-radius:20px;background:{bg_c};border:1px solid {border_c};'
@@ -414,8 +444,8 @@ def read_source_file(path):
 def context_source_ui(label, emoji, folder, uploader_key, help_text):
     preloaded_names = discover_preloaded(folder)
     st.markdown(
-        f'<div style="font-weight:600;font-size:0.875rem;color:#2D2B28;'
-        f'margin-bottom:6px;">{emoji} {label}</div>',
+        f'<div style="font-family:Inter,sans-serif;font-weight:600;font-size:0.825rem;'
+        f'color:#1A1918;margin-bottom:6px;letter-spacing:0.01em;">{emoji} {label}</div>',
         unsafe_allow_html=True,
     )
     if preloaded_names:
@@ -514,8 +544,8 @@ def github_delete_file(token, owner, repo, folder, filename, sha):
 
 def file_library_section(label, folder, token, owner, repo):
     st.markdown(
-        f'<div style="font-weight:700;font-size:0.95rem;color:#2D2B28;'
-        f'margin-bottom:12px;">{label}</div>',
+        f'<div style="font-family:\'DM Serif Display\',serif;font-size:1.3rem;'
+        f'color:#1A1918;margin-bottom:14px;">{label}</div>',
         unsafe_allow_html=True,
     )
     files = github_list_files(token, owner, repo, folder)
@@ -534,7 +564,7 @@ def file_library_section(label, folder, token, owner, repo):
                 st.rerun()
     else:
         st.markdown(
-            '<p style="font-size:0.875rem;color:#A09A93;font-style:italic;'
+            '<p style="font-family:Inter,sans-serif;font-size:0.875rem;color:#9C9690;'
             'margin:4px 0 16px;">No files saved yet.</p>',
             unsafe_allow_html=True,
         )
@@ -567,17 +597,19 @@ with tab_calibration:
 
     # Hero
     st.markdown("""
-    <div style="padding:2rem 0 1.25rem;">
-        <h1 style="font-size:1.85rem;font-weight:800;color:#2D2B28;
-                   letter-spacing:-0.5px;margin:0 0 6px;">
-            Performance Review Calibration
+    <div style="padding:2.5rem 0 1.5rem;">
+        <h1 style="font-family:'DM Serif Display',serif;font-size:2.75rem;
+                   font-weight:400;color:#1A1918;letter-spacing:-0.5px;
+                   line-height:1.15;margin:0 0 10px;">
+            Performance Review<br>Calibration
         </h1>
-        <p style="font-size:1rem;color:#7C7772;margin:0;line-height:1.5;">
+        <p style="font-family:'Inter',sans-serif;font-size:1rem;color:#9C9690;
+                  margin:0;line-height:1.6;max-width:520px;">
             Upload your team's review materials to get a prioritised list
             of who needs discussion in your calibration session.
         </p>
     </div>
-    <hr style="border-color:#E5E0D8;margin:0 0 0.5rem;">
+    <hr style="border-color:#D8D4CC;margin:0 0 0.25rem;">
     """, unsafe_allow_html=True)
 
     # ── Step 1: Context documents ──────────────────────────
@@ -622,7 +654,7 @@ with tab_calibration:
         label_visibility="collapsed",
         help="Required columns: Name, Level, Self Rating, Manager Rating",
     )
-    st.markdown('<div style="margin-bottom:4px;font-size:0.875rem;color:#7C7772;">Upload a CSV with columns: <strong>Name</strong>, <strong>Level</strong>, <strong>Self Rating</strong>, <strong>Manager Rating</strong></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;margin-bottom:4px;font-size:0.82rem;color:#9C9690;">Required columns: <strong style="color:#1A1918;">Name</strong>, <strong style="color:#1A1918;">Level</strong>, <strong style="color:#1A1918;">Self Rating</strong>, <strong style="color:#1A1918;">Manager Rating</strong></div>', unsafe_allow_html=True)
 
     if employee_data_file:
         try:
@@ -651,7 +683,7 @@ with tab_calibration:
         help="Include the employee's name in each filename — e.g. Aaron-Brigham_Q1-2026.pdf",
     )
     st.markdown(
-        '<div style="font-size:0.875rem;color:#7C7772;margin-top:4px;">'
+        '<div style="font-family:Inter,sans-serif;font-size:0.82rem;color:#9C9690;margin-top:6px;">'
         'Include each employee\'s name in the filename so they can be matched to your spreadsheet.</div>',
         unsafe_allow_html=True,
     )
@@ -804,10 +836,11 @@ Respond ONLY with the JSON object. No preamble, no explanation outside the JSON.
     if "results" in st.session_state:
         results_df = st.session_state["results"]
 
-        st.markdown('<hr style="border-color:#E5E0D8;margin:2rem 0 1.5rem;">', unsafe_allow_html=True)
+        st.markdown('<hr style="border-color:#D8D4CC;margin:2.5rem 0 1.75rem;">', unsafe_allow_html=True)
         st.markdown(
-            '<h2 style="font-size:1.4rem;font-weight:800;color:#2D2B28;'
-            'margin:0 0 1.25rem;">Results</h2>',
+            '<h2 style="font-family:\'DM Serif Display\',serif;font-size:2rem;'
+            'font-weight:400;color:#1A1918;letter-spacing:-0.3px;'
+            'margin:0 0 1.5rem;">Results</h2>',
             unsafe_allow_html=True,
         )
 
@@ -896,29 +929,33 @@ Respond ONLY with the JSON object. No preamble, no explanation outside the JSON.
 with tab_library:
 
     st.markdown("""
-    <div style="padding:2rem 0 1rem;">
-        <h1 style="font-size:1.85rem;font-weight:800;color:#2D2B28;
-                   letter-spacing:-0.5px;margin:0 0 6px;">
+    <div style="padding:2.5rem 0 1.5rem;">
+        <h1 style="font-family:'DM Serif Display',serif;font-size:2.75rem;
+                   font-weight:400;color:#1A1918;letter-spacing:-0.5px;
+                   line-height:1.15;margin:0 0 10px;">
             File Library
         </h1>
-        <p style="font-size:1rem;color:#7C7772;margin:0;line-height:1.5;">
+        <p style="font-family:'Inter',sans-serif;font-size:1rem;color:#9C9690;
+                  margin:0;line-height:1.6;max-width:520px;">
             Save your career ladders and rating scales here once,
             and they'll be available to everyone using this tool — no re-uploading each time.
         </p>
     </div>
-    <hr style="border-color:#E5E0D8;margin:0 0 1.5rem;">
+    <hr style="border-color:#D8D4CC;margin:0 0 1.5rem;">
     """, unsafe_allow_html=True)
 
     token, owner, repo = get_github_config()
 
     if not token:
         st.markdown("""
-        <div style="background:#FFF8F5;border:1px solid #E8C9BC;border-radius:12px;
-                    padding:20px 24px;max-width:560px;">
-            <div style="font-weight:700;color:#2D2B28;margin-bottom:8px;">
+        <div style="background:#FFFFFF;border:1px solid #D8D4CC;border-radius:14px;
+                    padding:22px 26px;max-width:540px;">
+            <div style="font-family:'DM Serif Display',serif;font-size:1.2rem;
+                        color:#1A1918;margin-bottom:8px;">
                 File Library isn't set up yet
             </div>
-            <div style="font-size:0.875rem;color:#5C5752;line-height:1.65;">
+            <div style="font-family:Inter,sans-serif;font-size:0.875rem;
+                        color:#6C6762;line-height:1.7;">
                 To enable it, add <code>GITHUB_TOKEN</code> and <code>GITHUB_REPO</code>
                 to your app's Secrets in Streamlit. See <strong>HOW_TO_DEPLOY.md</strong>
                 for step-by-step instructions.
@@ -933,14 +970,15 @@ with tab_library:
     else:
         st.markdown(
             '<div style="display:inline-flex;align-items:center;gap:8px;'
-            'background:#F0FAF0;border:1px solid #BBF7D0;border-radius:8px;'
-            'padding:6px 14px;font-size:0.875rem;color:#166534;font-weight:600;'
-            'margin-bottom:1.5rem;">✓ File Library connected</div>',
+            'background:#FFFFFF;border:1px solid #D8D4CC;border-radius:100px;'
+            'padding:5px 14px;font-family:Inter,sans-serif;font-size:0.8rem;'
+            'color:#1A1918;font-weight:500;margin-bottom:1.5rem;">'
+            '<span style="color:#C8602A;">●</span> Library connected</div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<p style="font-size:0.875rem;color:#5C5752;margin:0 0 1.5rem;">'
-            'Upload a file and click <strong>Save to Library</strong>. '
+            '<p style="font-family:Inter,sans-serif;font-size:0.9rem;color:#6C6762;margin:0 0 1.5rem;">'
+            'Upload a file and click <strong style="color:#1A1918;">Save to Library</strong>. '
             'It will appear in the dropdown on the Calibration tab within about a minute.</p>',
             unsafe_allow_html=True,
         )
@@ -952,7 +990,7 @@ with tab_library:
             file_library_section("Rating Scales", "rating_scales", token, owner, repo)
 
         st.markdown(
-            '<p style="font-size:0.8rem;color:#A09A93;margin-top:2rem;">'
+            '<p style="font-family:Inter,sans-serif;font-size:0.8rem;color:#9C9690;margin-top:2rem;">'
             'Files are stored in your connected repository and become available '
             'automatically after a short redeployment.</p>',
             unsafe_allow_html=True,
