@@ -1,18 +1,7 @@
 [theme]
 
-# ── Wealthsimple-inspired palette ──────────────────────────────
-# Warm near-black for text (close to Wealthsimple "Dune" but our own)
-textColor = "#2D2B28"
-
-# Clean white main canvas
-backgroundColor = "#FFFFFF"
-
-# Warm parchment tone for sidebar and input backgrounds
-secondaryBackgroundColor = "#F0EDE8"
-
-# Warm orange for buttons, links, and active states
-# Inspired by Wealthsimple's CTA orange but distinct from it
-primaryColor = "#C8602A"
-
-# Clean sans-serif — Wealthsimple uses bold geometric type
-font = "sans serif"
+textColor        = "#1A1918"
+backgroundColor  = "#F5F4EF"
+secondaryBackgroundColor = "#ECEAE3"
+primaryColor     = "#C8602A"
+font             = "sans serif"
