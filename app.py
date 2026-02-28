@@ -354,35 +354,71 @@ def parse_name(name):
     else:
         tokens = name.split()
         first = tokens[0] if tokens else ""
-        last  = tokens[-1] if len(tokens) > 1 else ""
-    clean = lambda s: re.sub(r"[^a-z]", "", s.lower())
-    return clean(first), clean(last)
+        # Join remaining tokens so "Bille-Stauner" stays together
+        last  = " ".join(tokens[1:]) if len(tokens) > 1 else ""
+    # Preserve hyphens so "Bille-Stauner" → "bille-stauner" (not "billestauner")
+    clean       = lambda s: re.sub(r"[^a-z\-]", "", s.lower())
+    clean_plain = lambda s: re.sub(r"[^a-z]",    "", s.lower())
+    return clean(first), clean(last), clean_plain(last)
 
 
 def find_review_for_employee(name, pdf_dict):
-    first, last = parse_name(name)
+    import re
+    first, last, last_plain = parse_name(name)
     if not first and not last:
         return None
+
     fn_lower = {fn: fn.lower() for fn in pdf_dict}
+    # Strip every non-alpha char for a last-resort fuzzy match
+    fn_plain  = {fn: re.sub(r"[^a-z]", "", fn.lower()) for fn in pdf_dict}
+
+    def make_candidates(f, l):
+        return [
+            f"{f}-{l}", f"{l}-{f}",
+            f"{f} {l}", f"{l} {f}",
+            f"{l}_{f}", f"{f}_{l}",
+        ]
+
     candidates = []
     if first and last:
-        candidates += [
-            f"{first}-{last}", f"{last}-{first}",
-            f"{first} {last}", f"{last} {first}",
-            f"{last}_{first}", f"{first}_{last}",
-        ]
+        candidates += make_candidates(first, last)
+        # Also try with hyphens replaced by common separators in the filename
+        last_dash  = last.replace("-", "_")
+        last_space = last.replace("-", " ")
+        candidates += make_candidates(first, last_dash)
+        candidates += make_candidates(first, last_space)
+    if first and last_plain and last_plain != last:
+        # Hyphen-free version (e.g. filename has "BilleStauner" not "Bille-Stauner")
+        candidates += make_candidates(first, last_plain)
+
+    # Pass 1 — substring match on lowercased filename
     for fn, fln in fn_lower.items():
         for cand in candidates:
             if cand in fln:
                 return pdf_dict[fn]
+
+    # Pass 2 — both first and last appear anywhere in lowercased filename
     if first and last:
-        matches = [fn for fn, fln in fn_lower.items() if first in fln and last in fln]
+        matches = [fn for fn, fln in fn_lower.items()
+                   if first in fln and (last in fln or last_plain in fln)]
         if matches:
             return pdf_dict[matches[0]]
-    if last:
-        matches = [fn for fn, fln in fn_lower.items() if last in fln]
+
+    # Pass 3 — strip ALL separators from both sides and compare
+    # e.g. "frankbillestauner" in "frankbillestauner_q1review"
+    if first and last_plain:
+        needle_fl = first + last_plain
+        needle_lf = last_plain + first
+        for fn, fpn in fn_plain.items():
+            if needle_fl in fpn or needle_lf in fpn:
+                return pdf_dict[fn]
+
+    # Pass 4 — last name only (only if unique match)
+    if last_plain:
+        matches = [fn for fn, fpn in fn_plain.items() if last_plain in fpn]
         if len(matches) == 1:
             return pdf_dict[matches[0]]
+
     return None
 
 
