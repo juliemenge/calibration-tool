@@ -711,46 +711,40 @@ with tab_calibration:
 
     run_button = st.button("Run Analysis →", type="primary", disabled=not ready)
 
-    if run_button:
-        with st.spinner("Reading documents…"):
-            career_ladder_text = (
-                read_source_file(career_ladder_path) if career_ladder_path
-                else read_uploaded_file(career_ladder_file)
-            )
-            rating_scale_text = (
-                read_source_file(rating_scale_path) if rating_scale_path
-                else read_uploaded_file(rating_scale_file)
-            )
-
-        employee_df = pd.read_csv(employee_data_file)
-
-        with st.spinner("Reading review packets…"):
-            self_reviews, manager_reviews = {}, {}
-            for f in (combined_review_files or []):
-                mgr_text, self_text = split_combined_review(f)
-                manager_reviews[f.name] = mgr_text
-                self_reviews[f.name]    = self_text
-
-        client = anthropic.Anthropic(api_key=api_key)
+    # ── Helper: run analysis for a list of employee rows ──────────────
+    def run_analysis_for_rows(employee_rows, self_reviews, manager_reviews,
+                               career_ladder_text, rating_scale_text,
+                               client, progress_offset=0, progress_total=None):
+        """Analyse a list of employee dicts; return (results_list, unmatched_names)."""
         results = []
+        unmatched = []
+        n = len(employee_rows)
+        if progress_total is None:
+            progress_total = n
         progress_bar = st.progress(0.0)
         status_text  = st.empty()
 
-        for i, row in employee_df.iterrows():
+        for idx, row in enumerate(employee_rows):
             name           = str(row["Name"]).strip()
             level          = str(row["Level"]).strip()
             self_rating    = row["Self Rating"]
             manager_rating = row["Manager Rating"]
             rating_gap     = abs(float(self_rating) - float(manager_rating))
 
-            status_text.caption(f"Analysing {name}  ({i + 1} of {len(employee_df)})")
+            status_text.caption(f"Analysing {name}  ({progress_offset + idx + 1} of {progress_total})")
 
-            self_review_text    = find_review_for_employee(name, self_reviews)    or "No self review provided."
-            manager_review_text = find_review_for_employee(name, manager_reviews) or "No manager review provided."
+            mgr_text_raw  = find_review_for_employee(name, manager_reviews)
+            self_text_raw = find_review_for_employee(name, self_reviews)
+
+            if mgr_text_raw is None and self_text_raw is None:
+                unmatched.append(name)
+
+            manager_review_text = mgr_text_raw  or "No manager review provided."
+            self_review_text    = self_text_raw or "No self review provided."
 
             prompt = f"""You are an expert HR consultant helping a team prepare for a performance calibration session.
-Your job is to analyze one employee's review data and determine how important they are to discuss,
-and why. Be specific and grounded in the actual text provided.
+Analyse one employee's review data and decide how much calibration discussion they warrant.
+Be specific and grounded in the actual text provided.
 
 ━━━ CAREER LADDER ━━━
 {career_ladder_text[:6000]}
@@ -772,23 +766,22 @@ Rating Gap: {rating_gap:.1f} points
 {manager_review_text[:10000]}
 
 ━━━ YOUR TASK ━━━
-Analyze this employee and return a JSON object with EXACTLY these fields:
+Return a JSON object with EXACTLY these fields:
 
 {{
-  "priority_score": <integer from 1 to 10, where 10 = most critical to discuss>,
-  "primary_concern": "<one clear sentence summarizing the most important issue, or 'No significant flags' if clean>",
-  "flags": [<list of specific flag strings — be concrete, e.g. "3-point rating gap", "manager narrative conflicts with strong self-rating">],
+  "tier": "<one of: discuss_first, worth_a_look, on_track>",
+  "primary_concern": "<one clear sentence summarising the most important issue, or 'No significant concerns' if clean>",
+  "flags": ["<specific flag — be concrete, e.g. '3-point self/manager gap', 'manager narrative conflicts with strong self-rating'>"],
   "discussion_points": ["<specific point 1>", "<specific point 2>", "<specific point 3 if applicable>"],
-  "rating_gap_concern": <true if the numeric gap is 1.5 or more points>,
-  "narrative_rating_mismatch": <true if either written review doesn't match its corresponding numeric rating>,
+  "large_rating_gap": <true if the numeric gap between self and manager rating is 1.5 or more>,
+  "narrative_contradicts_rating": <true if either written review does not match its corresponding numeric rating>,
   "self_manager_conflict": <true if the self and manager written narratives describe meaningfully different realities>
 }}
 
-Scoring guidance:
-- 8–10: Multiple serious flags (large gap + narrative conflict, or evidence of bias/inconsistency)
-- 5–7: One clear flag worth brief discussion (moderate gap, or one narrative mismatch)
-- 2–4: Minor flags, likely fine to skip or spend < 2 minutes on
-- 1: No concerns detected
+Tier guidance:
+- "discuss_first" — Large rating gap (1.5+ points), narrative that contradicts a rating, OR meaningful self/manager conflict. Needs calibration time.
+- "worth_a_look" — Moderate gap (0.8–1.4 points) or a subtle mismatch worth brief attention. Low investment.
+- "on_track" — Self and manager are well aligned and narratives support ratings. No meaningful concerns.
 
 Respond ONLY with the JSON object. No preamble, no explanation outside the JSON."""
 
@@ -801,14 +794,20 @@ Respond ONLY with the JSON object. No preamble, no explanation outside the JSON.
                 raw = response.content[0].text.strip()
                 raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
                 analysis = json.loads(raw)
-            except Exception as e:
+            except Exception:
+                if rating_gap >= 1.5:
+                    fallback_tier = "discuss_first"
+                elif rating_gap >= 0.8:
+                    fallback_tier = "worth_a_look"
+                else:
+                    fallback_tier = "on_track"
                 analysis = {
-                    "priority_score": min(10, max(1, int(rating_gap * 2.5))),
+                    "tier": fallback_tier,
                     "primary_concern": f"AI analysis unavailable. Rating gap: {rating_gap:.1f} points.",
                     "flags": [f"{rating_gap:.1f}-point rating gap"] if rating_gap >= 1 else [],
                     "discussion_points": [],
-                    "rating_gap_concern": rating_gap >= 1.5,
-                    "narrative_rating_mismatch": False,
+                    "large_rating_gap": rating_gap >= 1.5,
+                    "narrative_contradicts_rating": False,
                     "self_manager_conflict": False,
                 }
 
@@ -818,64 +817,176 @@ Respond ONLY with the JSON object. No preamble, no explanation outside the JSON.
                 "Self Rating": self_rating,
                 "Manager Rating": manager_rating,
                 "Gap": rating_gap,
-                "Priority Score": analysis.get("priority_score", 1),
+                "Tier": analysis.get("tier", "on_track"),
                 "Primary Concern": analysis.get("primary_concern", ""),
                 "Flags": analysis.get("flags", []),
                 "Discussion Points": analysis.get("discussion_points", []),
-                "rating_gap_concern": analysis.get("rating_gap_concern", False),
-                "narrative_rating_mismatch": analysis.get("narrative_rating_mismatch", False),
+                "large_rating_gap": analysis.get("large_rating_gap", False),
+                "narrative_contradicts_rating": analysis.get("narrative_contradicts_rating", False),
                 "self_manager_conflict": analysis.get("self_manager_conflict", False),
             })
 
-            progress_bar.progress((i + 1) / len(employee_df))
+            progress_bar.progress((idx + 1) / n)
 
         status_text.empty()
         progress_bar.empty()
+        return results, unmatched
 
-        results_df = pd.DataFrame(results).sort_values("Priority Score", ascending=False).reset_index(drop=True)
-        st.session_state["results"] = results_df
+    TIER_ORDER = {"discuss_first": 0, "worth_a_look": 1, "on_track": 2}
+
+    def sort_by_tier(df):
+        df = df.copy()
+        df["_rank"] = df["Tier"].map(TIER_ORDER).fillna(3)
+        return df.sort_values("_rank").drop(columns=["_rank"]).reset_index(drop=True)
+
+    if run_button:
+        with st.spinner("Reading documents…"):
+            career_ladder_text = (
+                read_source_file(career_ladder_path) if career_ladder_path
+                else read_uploaded_file(career_ladder_file)
+            )
+            rating_scale_text = (
+                read_source_file(rating_scale_path) if rating_scale_path
+                else read_uploaded_file(rating_scale_file)
+            )
+
+        employee_df = pd.read_csv(employee_data_file)
+
+        with st.spinner("Reading review packets…"):
+            self_reviews, manager_reviews = {}, {}
+            for f in (combined_review_files or []):
+                mgr_text, self_text = split_combined_review(f)
+                manager_reviews[f.name] = mgr_text
+                self_reviews[f.name]    = self_text
+
+        client = anthropic.Anthropic(api_key=api_key)
+
+        employee_rows = employee_df.to_dict("records")
+        results, unmatched = run_analysis_for_rows(
+            employee_rows, self_reviews, manager_reviews,
+            career_ladder_text, rating_scale_text, client,
+            progress_total=len(employee_rows),
+        )
+
+        results_df = sort_by_tier(pd.DataFrame(results))
+        st.session_state["results"]             = results_df
+        st.session_state["unmatched"]           = unmatched
+        st.session_state["career_ladder_text"]  = career_ladder_text
+        st.session_state["rating_scale_text"]   = rating_scale_text
+        st.session_state["employee_df_stored"]  = employee_df
 
     # ── Results ────────────────────────────────────────────
     if "results" in st.session_state:
         results_df = st.session_state["results"]
 
         st.markdown('<hr style="border-color:#D8D4CC;margin:2.5rem 0 1.75rem;">', unsafe_allow_html=True)
-        st.markdown(
-            '<h2 style="font-family:\'DM Serif Display\',serif;font-size:2rem;'
-            'font-weight:400;color:#1A1918;letter-spacing:-0.3px;'
-            'margin:0 0 1.5rem;">Results</h2>',
-            unsafe_allow_html=True,
-        )
 
-        total   = len(results_df)
-        high_c  = len(results_df[results_df["Priority Score"] >= 7])
-        mid_c   = len(results_df[(results_df["Priority Score"] >= 4) & (results_df["Priority Score"] < 7)])
-        low_c   = len(results_df[results_df["Priority Score"] < 4])
-        gap_c   = len(results_df[results_df["rating_gap_concern"] == True])
-        narr_c  = len(results_df[results_df["narrative_rating_mismatch"] | results_df["self_manager_conflict"]])
+        # Results header + reset button side by side
+        col_title, col_reset = st.columns([6, 1])
+        with col_title:
+            st.markdown(
+                '<h2 style="font-family:\'DM Serif Display\',serif;font-size:2rem;'
+                'font-weight:400;color:#1A1918;letter-spacing:-0.3px;'
+                'margin:0 0 1.5rem;">Results</h2>',
+                unsafe_allow_html=True,
+            )
+        with col_reset:
+            st.markdown('<div style="margin-top:0.35rem;"></div>', unsafe_allow_html=True)
+            if st.button("↩ Start over", type="secondary", key="reset_btn"):
+                for key in ["results", "unmatched", "career_ladder_text",
+                            "rating_scale_text", "employee_df_stored"]:
+                    st.session_state.pop(key, None)
+                st.rerun()
+
+        # Metrics
+        total     = len(results_df)
+        discuss_c = len(results_df[results_df["Tier"] == "discuss_first"])
+        look_c    = len(results_df[results_df["Tier"] == "worth_a_look"])
+        track_c   = len(results_df[results_df["Tier"] == "on_track"])
+        gap_c     = len(results_df[results_df["large_rating_gap"] == True])
+        narr_c    = len(results_df[results_df["narrative_contradicts_rating"] | results_df["self_manager_conflict"]])
 
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Employees", total)
-        m2.metric("Need Discussion", high_c)
-        m3.metric("Worth a Look", mid_c)
+        m2.metric("Discuss First", discuss_c)
+        m3.metric("Worth a Look", look_c)
         m4.metric("Rating Gaps", gap_c)
         m5.metric("Narrative Flags", narr_c)
 
-        # High priority
-        section_pill("Discuss First", "red")
-        high = results_df[results_df["Priority Score"] >= 7]
-        if len(high) == 0:
-            st.success("No employees flagged as high priority.")
-        for _, row in high.iterrows():
+        # ── Missing reviews warning + gap-fill ─────────────────────
+        unmatched = st.session_state.get("unmatched", [])
+        if unmatched:
+            names_str = ", ".join(unmatched)
+            st.markdown(f"""
+            <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;
+                        padding:16px 20px;margin:1.25rem 0;">
+                <div style="font-family:Inter,sans-serif;font-weight:700;font-size:0.85rem;
+                            color:#92400E;margin-bottom:6px;">
+                    ⚠ No review PDF found for {len(unmatched)} employee{'s' if len(unmatched) != 1 else ''}
+                </div>
+                <div style="font-family:Inter,sans-serif;font-size:0.85rem;color:#92400E;
+                            line-height:1.6;">
+                    {names_str}<br>
+                    <span style="color:#A85B10;">Upload their PDFs below and click <strong>Fill in gaps</strong> to re-run just these employees.</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            gap_files = st.file_uploader(
+                "Upload missing review PDFs",
+                type=["pdf"],
+                accept_multiple_files=True,
+                key="gap_fill_files",
+                label_visibility="collapsed",
+            )
+            if gap_files:
+                st.caption(f"{len(gap_files)} file{'s' if len(gap_files) != 1 else ''} selected")
+                if st.button("Fill in gaps →", type="primary", key="gap_fill_btn"):
+                    # Split gap-fill PDFs
+                    gap_self_reviews, gap_manager_reviews = {}, {}
+                    for f in gap_files:
+                        mgr_text, self_text = split_combined_review(f)
+                        gap_manager_reviews[f.name] = mgr_text
+                        gap_self_reviews[f.name]    = self_text
+
+                    # Get stored context and find rows for unmatched employees
+                    stored_df   = st.session_state.get("employee_df_stored", pd.DataFrame())
+                    cl_text     = st.session_state.get("career_ladder_text", "")
+                    rs_text     = st.session_state.get("rating_scale_text", "")
+                    unmatched_rows = stored_df[stored_df["Name"].isin(unmatched)].to_dict("records")
+
+                    gap_client = anthropic.Anthropic(api_key=api_key)
+                    new_results, still_unmatched = run_analysis_for_rows(
+                        unmatched_rows, gap_self_reviews, gap_manager_reviews,
+                        cl_text, rs_text, gap_client,
+                        progress_total=len(unmatched_rows),
+                    )
+
+                    # Replace old rows, re-sort
+                    new_names = [r["Name"] for r in new_results]
+                    existing  = results_df[~results_df["Name"].isin(new_names)]
+                    merged    = sort_by_tier(
+                        pd.concat([existing, pd.DataFrame(new_results)], ignore_index=True)
+                    )
+                    st.session_state["results"]   = merged
+                    st.session_state["unmatched"] = still_unmatched
+                    st.rerun()
+
+        # ── Discuss First ───────────────────────────────────────────
+        section_pill("🔴  Discuss First", "red")
+        discuss = results_df[results_df["Tier"] == "discuss_first"]
+        if len(discuss) == 0:
+            st.success("No employees flagged for immediate discussion.")
+        for _, row in discuss.iterrows():
+            gap_label = f"gap: {row['Gap']:.1f}" if row['Gap'] > 0 else "no gap"
             header = (
                 f"**{row['Name']}** · {row['Level']} · "
-                f"Score {row['Priority Score']}/10 · "
                 f"Self {row['Self Rating']} → Manager {row['Manager Rating']}"
-                f" (gap: {row['Gap']:.1f})"
+                f"  ({gap_label})"
             )
             with st.expander(header, expanded=True):
                 st.markdown(f"**{row['Primary Concern']}**")
-                flag_badges(row["rating_gap_concern"], row["narrative_rating_mismatch"], row["self_manager_conflict"])
+                flag_badges(row["large_rating_gap"], row["narrative_contradicts_rating"], row["self_manager_conflict"])
                 if row["Flags"]:
                     st.markdown("**Flags**")
                     for flag in row["Flags"]:
@@ -885,39 +996,43 @@ Respond ONLY with the JSON object. No preamble, no explanation outside the JSON.
                     for pt in row["Discussion Points"]:
                         st.markdown(f"- {pt}")
 
-        # Medium priority
-        section_pill("Worth a Look", "yellow")
-        medium = results_df[(results_df["Priority Score"] >= 4) & (results_df["Priority Score"] < 7)]
-        if len(medium) == 0:
-            st.info("No medium-priority employees.")
-        for _, row in medium.iterrows():
+        # ── Worth a Look ────────────────────────────────────────────
+        section_pill("🟡  Worth a Look", "yellow")
+        look = results_df[results_df["Tier"] == "worth_a_look"]
+        if len(look) == 0:
+            st.info("No employees in this tier.")
+        for _, row in look.iterrows():
+            gap_label = f"gap: {row['Gap']:.1f}" if row['Gap'] > 0 else "no gap"
             header = (
                 f"**{row['Name']}** · {row['Level']} · "
-                f"Score {row['Priority Score']}/10 · "
                 f"Self {row['Self Rating']} → Manager {row['Manager Rating']}"
-                f" (gap: {row['Gap']:.1f})"
+                f"  ({gap_label})"
             )
             with st.expander(header):
                 st.markdown(f"**{row['Primary Concern']}**")
-                flag_badges(row["rating_gap_concern"], row["narrative_rating_mismatch"], row["self_manager_conflict"])
+                flag_badges(row["large_rating_gap"], row["narrative_contradicts_rating"], row["self_manager_conflict"])
                 if row["Flags"]:
                     for flag in row["Flags"]:
                         st.markdown(f"- {flag}")
+                if row["Discussion Points"]:
+                    for pt in row["Discussion Points"]:
+                        st.markdown(f"- {pt}")
 
-        # Low priority
-        section_pill("No Discussion Needed", "green")
-        low = results_df[results_df["Priority Score"] < 4]
-        if len(low) > 0:
+        # ── On Track ────────────────────────────────────────────────
+        section_pill("🟢  On Track", "green")
+        on_track = results_df[results_df["Tier"] == "on_track"]
+        if len(on_track) > 0:
             st.dataframe(
-                low[["Name", "Level", "Self Rating", "Manager Rating", "Gap", "Primary Concern"]],
+                on_track[["Name", "Level", "Self Rating", "Manager Rating", "Gap", "Primary Concern"]],
                 use_container_width=True, hide_index=True,
             )
         else:
-            st.info("All employees were flagged as medium or high priority.")
+            st.info("All employees have at least minor flags — none landed in On Track.")
 
         # Export
         st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
-        export_df = results_df[["Name","Level","Self Rating","Manager Rating","Gap","Priority Score","Primary Concern"]].copy()
+        export_df = results_df[["Name", "Level", "Self Rating", "Manager Rating",
+                                 "Gap", "Tier", "Primary Concern"]].copy()
         st.download_button(
             label="Download results as CSV",
             data=export_df.to_csv(index=False),
