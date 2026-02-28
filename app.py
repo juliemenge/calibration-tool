@@ -405,7 +405,6 @@ def find_review_for_employee(name, pdf_dict):
             return pdf_dict[matches[0]]
 
     # Pass 3 — strip ALL separators from both sides and compare
-    # e.g. "frankbillestauner" in "frankbillestauner_q1review"
     if first and last_plain:
         needle_fl = first + last_plain
         needle_lf = last_plain + first
