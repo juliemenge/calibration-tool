@@ -189,6 +189,9 @@ hr { border-color: #D8D4CC !important; margin: 1.75rem 0 !important; }
     border-radius: 4px !important;
 }
 
+/* ── Hide heading anchor links ────────────────────────── */
+h1 a, h2 a, h3 a { display: none !important; }
+
 /* ── Download button ──────────────────────────────────── */
 [data-testid="stDownloadButton"] > button {
     border-radius: 100px !important;
