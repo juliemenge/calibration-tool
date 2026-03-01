@@ -5,8 +5,24 @@ import pandas as pd
 import json
 import base64
 import requests
+import io
 from io import BytesIO
 from pathlib import Path
+
+
+class CachedFile:
+    """Minimal file-like wrapper for bytes cached in session state.
+    Lets session-cached library files be read identically to UploadedFile objects."""
+    def __init__(self, data: bytes, name: str):
+        self._buf = io.BytesIO(data)
+        self.name = name
+        self.type = "application/pdf" if name.lower().endswith(".pdf") else "text/plain"
+
+    def seek(self, pos):
+        self._buf.seek(pos)
+
+    def read(self, *args):
+        return self._buf.read(*args)
 
 # ─────────────────────────────────────────────
 # Page config
@@ -456,15 +472,19 @@ def split_combined_review(uploaded_file):
 UPLOAD_OPTION = "⬆️  Upload a different file…"
 
 def discover_preloaded(folder):
+    names = set()
+    # Files already deployed to the server filesystem
     p = Path(folder)
-    if not p.exists():
-        return []
-    return sorted(
-        f.name for f in p.iterdir()
-        if f.suffix.lower() in (".pdf", ".txt")
-        and not f.name.startswith(".")
-        and f.stem.upper() not in ("README", "PLACEHOLDER")
-    )
+    if p.exists():
+        names.update(
+            f.name for f in p.iterdir()
+            if f.suffix.lower() in (".pdf", ".txt")
+            and not f.name.startswith(".")
+            and f.stem.upper() not in ("README", "PLACEHOLDER")
+        )
+    # Files saved this session (available immediately, before GitHub→redeploy)
+    names.update(st.session_state.get("lib_cache", {}).get(folder, {}).keys())
+    return sorted(names)
 
 
 def read_source_file(path):
@@ -504,6 +524,10 @@ def context_source_ui(label, emoji, folder, uploader_key, help_text):
             return None, uploaded
         else:
             st.caption(f"Using: {choice}")
+            # Serve from session cache if saved this session (instant, no redeploy wait)
+            session_cached = st.session_state.get("lib_cache", {}).get(folder, {})
+            if choice in session_cached:
+                return None, CachedFile(session_cached[choice], choice)
             return Path(folder) / choice, None
     else:
         uploaded = st.file_uploader(
@@ -616,9 +640,14 @@ def file_library_section(label, folder, token, owner, repo):
     if new_file:
         if st.button("Save to Library", key=f"lib_save_{folder}", type="primary"):
             new_file.seek(0)
-            ok, msg = github_upload_file(token, owner, repo, folder, new_file.name, new_file.read())
+            file_bytes = new_file.read()
+            ok, msg = github_upload_file(token, owner, repo, folder, new_file.name, file_bytes)
             if ok:
-                st.success(f"✓ {msg} It will appear in the dropdown within about a minute.")
+                # Cache in session state so the dropdown updates immediately
+                lib_cache = st.session_state.setdefault("lib_cache", {})
+                lib_cache.setdefault(folder, {})[new_file.name] = file_bytes
+                st.success(f"✓ {msg}")
+                st.rerun()
             else:
                 st.error(f"Something went wrong — {msg}")
 
@@ -644,7 +673,7 @@ with tab_calibration:
         </h1>
         <p style="font-family:'Inter',sans-serif;font-size:1rem;color:#9C9690;
                   margin:0;line-height:1.6;max-width:520px;">
-            Upload your team's review materials to get a prioritized list
+            Upload your team's review materials to get a prioritised list
             of who needs discussion in your calibration session.
         </p>
     </div>
