@@ -405,6 +405,7 @@ def find_review_for_employee(name, pdf_dict):
             return pdf_dict[matches[0]]
 
     # Pass 3 — strip ALL separators from both sides and compare
+    # e.g. "frankbillestauner" in "frankbillestauner_q1review"
     if first and last_plain:
         needle_fl = first + last_plain
         needle_lf = last_plain + first
@@ -687,10 +688,12 @@ with tab_calibration:
             mime="text/csv",
         )
 
+    _reset_n = st.session_state.get("upload_reset", 0)
     employee_data_file = st.file_uploader(
         "Employee data (CSV)", type=["csv"],
         label_visibility="collapsed",
         help="Required columns: Name, Level, Self Rating, Manager Rating",
+        key=f"employee_csv_{_reset_n}",
     )
     st.markdown('<div style="font-family:Inter,sans-serif;margin-bottom:4px;font-size:0.82rem;color:#9C9690;">Required columns: <strong style="color:#1A1918;">Name</strong>, <strong style="color:#1A1918;">Level</strong>, <strong style="color:#1A1918;">Self Rating</strong>, <strong style="color:#1A1918;">Manager Rating</strong></div>', unsafe_allow_html=True)
 
@@ -719,6 +722,7 @@ with tab_calibration:
         accept_multiple_files=True,
         label_visibility="collapsed",
         help="Include the employee's name in each filename — e.g. Aaron-Brigham_Q1-2026.pdf",
+        key=f"review_pdfs_{_reset_n}",
     )
     st.markdown(
         '<div style="font-family:Inter,sans-serif;font-size:0.82rem;color:#9C9690;margin-top:6px;">'
@@ -931,6 +935,7 @@ Respond ONLY with the JSON object. No preamble, no explanation outside the JSON.
                 for key in ["results", "unmatched", "career_ladder_text",
                             "rating_scale_text", "employee_df_stored"]:
                     st.session_state.pop(key, None)
+                st.session_state["upload_reset"] = st.session_state.get("upload_reset", 0) + 1
                 st.rerun()
 
         # Metrics
