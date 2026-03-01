@@ -644,7 +644,7 @@ with tab_calibration:
         </h1>
         <p style="font-family:'Inter',sans-serif;font-size:1rem;color:#9C9690;
                   margin:0;line-height:1.6;max-width:520px;">
-            Upload your team's review materials to get a prioritised list
+            Upload your team's review materials to get a prioritized list
             of who needs discussion in your calibration session.
         </p>
     </div>
