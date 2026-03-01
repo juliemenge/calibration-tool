@@ -770,7 +770,7 @@ with tab_calibration:
             manager_rating = row["Manager Rating"]
             rating_gap     = abs(float(self_rating) - float(manager_rating))
 
-            status_text.caption(f"Analysing {name}  ({progress_offset + idx + 1} of {progress_total})")
+            status_text.caption(f"Analyzing {name}  ({progress_offset + idx + 1} of {progress_total})")
 
             mgr_text_raw  = find_review_for_employee(name, manager_reviews)
             self_text_raw = find_review_for_employee(name, self_reviews)
